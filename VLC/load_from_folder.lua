@@ -49,25 +49,53 @@ function find_files(item)
     -- Enqueue directory contents
     local dir = vlc.io.readdir(path)
     for _, file in pairs(dir) do
-        if file:match("%.mp4$") or file:match("%.mkv$") or file:match("%.avi$") then
+        if is_compatible(file) then
             local new_item = {}
             new_item.path = "file:///" .. path .. file
             new_item.name = file
             if file ~= current_video then
+                vlc.msg.dbg("[Load from folder] Enqueuing file: " .. file)
                 vlc.playlist.enqueue({new_item})
-            else -- if the file is the same as the one currently playing, replace it
-
-                -- Attempts to save the current position or time and restore it after the new video is loaded
-                -- local current_position = vlc.player.item().get_position()
-                -- local current_time = vlc.var.get(vlc.object.input(), "time")
-
-                vlc.playlist.delete(vlc.playlist.current())
-                vlc.playlist.add({new_item})
-
-                -- vlc.var.set(vlc.object.input(), "time", current_time)
-                -- vlc.player.item().seek_by_pos_absolute(current_position)
+            else
+                vlc.msg.dbg("[Load from folder] Replacing current file with: " .. file)
+                
+                vlc.playlist.delete(vlc.playlist.current())  -- Remove current item from playlist
+                vlc.playlist.add({new_item})  -- Add the new item
             end
         end
     end
     vlc.deactivate()
+end
+
+-- Function to check if the file is compatible with VLC
+function is_compatible(file)
+    -- Extract the file extension
+    local ext = file:match("^.+(%..+)$")
+
+    -- If ext is nil, return false
+    if not ext then
+        return false
+    end
+
+    -- Check if the extension is in the list of supported formats
+    local supported_extensions = {
+        mp4 = true,
+        mkv = true,
+        avi = true,
+        mov = true,
+        flv = true,
+        wmv = true,
+        mpg = true,
+        mpeg = true,
+        ["3gp"] = true,
+        mp = true,
+        ts = true
+    }
+    
+    -- Remove the dot from the extension and check against the table
+    if supported_extensions[ext:sub(2):lower()] then
+        return true
+    else
+        return false
+    end
 end
