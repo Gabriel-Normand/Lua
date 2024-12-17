@@ -16,7 +16,7 @@
 function descriptor()
     return {
         title = "Load from folder",
-        version = "1.0",
+        version = "1.1",
         author = "Gabriel Normand <https://github.com/Gabriel-Normand>",
         description = "Loads all videos from the same folder as the current video into the playlist"
     }
@@ -50,18 +50,7 @@ function find_files(item)
     local dir = vlc.io.readdir(path)
     for _, file in pairs(dir) do
         if is_compatible(file) then
-            local new_item = {}
-            new_item.path = "file:///" .. path .. file
-            new_item.name = file
-            if file ~= current_video then
-                vlc.msg.dbg("[Load from folder] Enqueuing file: " .. file)
-                vlc.playlist.enqueue({new_item})
-            else
-                vlc.msg.dbg("[Load from folder] Replacing current file with: " .. file)
-                
-                vlc.playlist.delete(vlc.playlist.current())  -- Remove current item from playlist
-                vlc.playlist.add({new_item})  -- Add the new item
-            end
+            handle_file(file, path, current_video)
         end
     end
     vlc.deactivate()
@@ -69,33 +58,36 @@ end
 
 -- Function to check if the file is compatible with VLC
 function is_compatible(file)
-    -- Extract the file extension
-    local ext = file:match("^.+(%..+)$")
+    -- Extract the extension
+    local ext = file:match("%.([^%.]+)$")
+    if not ext then return false end
 
-    -- If ext is nil, return false
-    if not ext then
-        return false
-    end
-
-    -- Check if the extension is in the list of supported formats
+    -- Set of supported extensions (I'm sure there's a better way to do this)
     local supported_extensions = {
-        mp4 = true,
-        mkv = true,
-        avi = true,
-        mov = true,
-        flv = true,
-        wmv = true,
-        mpg = true,
-        mpeg = true,
-        ["3gp"] = true,
-        mp = true,
-        ts = true
+        -- Common video formats
+        mp4 = true, avi = true, mkv = true, mov = true, wmv = true,
+        flv = true, webm = true, mpeg = true, mpg = true, ts = true,
+        -- Additional video formats
+        m4v = true, ogv = true, ["3gp"] = true, divx = true, xvid = true,
+        asf = true, vob = true, rm = true, rmvb = true, dat = true,
+        -- Professional/HD formats
+        mts = true, m2ts = true, dv = true, f4v = true, mxf = true,
+        m2v = true
     }
-    
-    -- Remove the dot from the extension and check against the table
-    if supported_extensions[ext:sub(2):lower()] then
-        return true
+
+    -- Check the extension against the set
+    return supported_extensions[ext:lower()] == true
+end
+
+-- Function to handle file enqueueing or replacing
+function handle_file(file, path, current_video)
+    local new_item = { path = "file:///" .. path .. file, name = file }
+    if file ~= current_video then
+        vlc.msg.dbg("[Load from folder] Enqueuing file: " .. file)
+        vlc.playlist.enqueue({new_item})
     else
-        return false
+        vlc.msg.dbg("[Load from folder] Replacing current file with: " .. file)
+        vlc.playlist.delete(vlc.playlist.current())  -- Remove current item from playlist
+        vlc.playlist.add({new_item})  -- Add the new item
     end
 end
